@@ -1,0 +1,4 @@
+{
+	tenant_id: "12345678-71fd-431c-a9dc-abcdef12345678",
+	use_styx_view: true
+}

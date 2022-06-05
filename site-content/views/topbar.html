@@ -1,0 +1,32 @@
+<!--Start topbar header-->
+<header class="topbar-nav">
+ <nav class="navbar navbar-expand fixed-top bg-dark border-bottom border-secondary-light shadow-none">
+  <ul class="navbar-nav mr-auto align-items-center">
+  </ul>
+     
+  <ul class="navbar-nav align-items-center right-nav-link">
+    <li class="nav-item">
+      <a class="nav-link dropdown-toggle dropdown-toggle-nocaret" data-toggle="dropdown">
+        <span class="user-profile">
+          <img ng-src="assets/images/squares.gif" ng-show="!gravatar">
+          <img ng-src="https://www.gravatar.com/avatar/{{ gravatar }}" class="img-circle" alt="user avatar" ng-hide="!gravatar">
+        </span>
+      </a>
+      <ul class="dropdown-menu dropdown-menu-right" style="margin-right: 25px;">
+       <li class="dropdown-item user-details">
+        <a>
+           <div class="media">
+             <div class="avatar"><img class="align-self-start mr-3" ng-src="https://www.gravatar.com/avatar/{{ gravatar }}" alt="user avatar"></div>
+            <div class="media-body">
+              <h6 class="mt-2 user-title">Current User:</h6>
+              <p class="user-subtitle">{{ email }}</p>
+            </div>
+           </div>
+          </a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+</header>
+<!--End topbar header-->

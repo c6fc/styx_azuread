@@ -1,0 +1,14 @@
+*.pem
+*/.terraform*
+*.tfstate
+*.tfstate*
+**/node_modules
+npk-settings.json
+render-*
+lambda_functions/zip_files/*
+lambda_functions/*/accountDetails.json
+lambda_functions/*/ENVVARS
+**.bak
+saml_certificate.der.asc
+styx.der
+settings.jsonnet

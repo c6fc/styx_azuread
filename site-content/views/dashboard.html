@@ -1,0 +1,111 @@
+<div class="clearfix"></div>
+	
+  <div class="content-wrapper">
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col-lg-12">
+          <div class="card bg-transparent shadow-none border border-secondary-light">
+            <div class="card-header bg-transparent text-white border-secondary-light">
+              River Styx for Azure AD
+            </div>
+            <div class="card-body">
+              <img height="50px" width="50px" style="margin: 20px 0px 20px 40%;" src="assets/images/loading.gif" ng-show="!roles[0]">
+
+              <div class="card mb-2 border border-white shadow-none" ng-hide="!roles[0]">
+                <div class="card-header text-dark">
+                  AWS Roles for {{ email }}
+                </div>
+
+                <div class="card-body bg-dark text-white">
+                  <div class="table-responsive">
+                    <table class="table table-dark">
+                      <thead>
+                        <tr>
+                          <th>Account ID</th>
+                          <th>Role Name</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr ng-repeat="(index, role) in roles | orderBy: accountId">
+                          <td><small>{{ role.account }}</small></td>
+                          <td><small>{{ role.roleName }}<small></td>
+                          <td>
+                            <button ng-click="getCreds(index, role)" class="btn btn-sm btn-outline-primary">
+                              <i class="icon-list"></i>
+                            </button>
+                            <button ng-click="doConsoleLogin(index, role)" class="btn btn-sm btn-success">
+                              <i class="icon-rocket"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End container-fluid-->
+    
+  </div><!--End content-wrapper-->
+   <!--Start Back To Top Button-->
+  <a href="javaScript:void();" class="back-to-top"><i class="fa fa-angle-double-up"></i> </a>
+    <!--End Back To Top Button-->
+	
+	<!--Start footer-->
+	<footer class="footer bg-transparent border-secondary-light">
+      <div class="container">
+        <div class="text-center text-white">
+
+        </div>
+      </div>
+    </footer>
+	<!--End footer-->
+   
+  </div><!--End wrapper-->
+
+  <div id="credentialsModal" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content bg-dark" style="width: 600px;">
+        <div class="modal-header">
+          <h5 class="modal-title text-white" ng-hide="credentials.AccessKeyId">
+            Retrieving credentials for [ {{ selectedEntitlement.roleName }} ]
+          </h5>
+          <h5 class="modal-title text-white" ng-show="credentials.AccessKeyId">
+            Credentials for [ {{ selectedEntitlement.roleName }} ]
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <img height="50px" width="50px" style="margin: 20px 0px 20px 40%;" src="assets/images/loading.gif" ng-show="!credentials">
+          <div class="card bg-white shadow-none border border-dark" ng-show="!!credentials">
+            <div class="card-body text-dark">
+              <small ng-hide="!credentials.success">
+                <pre style="white-space: pre-wrap;">export AWS_ACCESS_KEY_ID={{ credentials.AccessKeyId }}
+export AWS_SECRET_ACCESS_KEY={{ credentials.SecretAccessKey }}
+export AWS_SESSION_TOKEN={{ credentials.SessionToken }}</pre>
+              </small>
+              <small ng-show="!credentials.success">
+                <textbox>{{ credentials.msg }}</textbox>
+              </small>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-dismiss="modal">
+            <i class="fa fa-thumbs-o-up"></i>
+            Thanks
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+</body>
+</html>
