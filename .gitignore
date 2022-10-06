@@ -12,3 +12,4 @@ lambda_functions/*/ENVVARS
 saml_certificate.der.asc
 styx.der
 settings.jsonnet
+trust_policy.json

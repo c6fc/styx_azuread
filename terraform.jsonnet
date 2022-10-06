@@ -546,7 +546,7 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 				},
 				aws: {
 					source: "hashicorp/aws",
-					version: "~> 3.57.0"
+					version: "~> 4.17.1"
 				},
 				azuread: {
 					source: "hashicorp/azuread",
@@ -575,11 +575,13 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 		resource: {
 			aws_s3_bucket: {
 				content: {
-					bucket_prefix: "styx-azuread-content-"
+					bucket_prefix: "styx-azuread-content-",
+					force_destroy: true
 				},
 				logs: {
 					bucket_prefix: "styx-azuread-logs-",
-					acl: "log-delivery-write"
+					acl: "log-delivery-write",
+					force_destroy: true
 				}
 			},
 			null_resource: {
@@ -630,7 +632,8 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 		resource: {
 			aws_secretsmanager_secret: {
 				styx_sp_password: {
-					name: "styx_sp_password"
+					name: "styx_sp_password",
+					recovery_window_in_days: 0
 				}
 			},
 			aws_secretsmanager_secret_version: {
@@ -667,17 +670,18 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 		resource: {
 			azuread_application: {
 				styx: {
-					display_name: "styx",
+					display_name: "River Styx",
+					logo_image: "${filebase64(\"%s/logo.png\")}" % sonnetry.path(),
 					owners: ["${data.azuread_client_config.current.object_id}"],
 					sign_in_audience: "AzureADMyOrg",
 
 					feature_tags: {
 						gallery: false,
-						enterprise: false,
+						enterprise: true,
 						custom_single_sign_on: false
 					},
 
-					identifier_uris: ["https://${aws_cloudfront_distribution.styx_azuread.domain_name}"],
+					identifier_uris: ["api://${aws_cloudfront_distribution.styx_azuread.domain_name}"],
 
 					group_membership_claims: ["SecurityGroup"],
 
@@ -750,6 +754,35 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 		output: {
 			azure_saml_metadata_url: {
 				value: "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/federationmetadata/2007-06/federationmetadata.xml?appid=${azuread_application.styx.application_id}"
+			}
+		}
+	},
+	'trust_policy.tf.json': {
+		resource: {
+			local_file: {
+				trust_policy: {
+					filename: "%s/trust_policy.json" % sonnetry.path(),
+					content: std.manifestJsonEx({
+					    Version: "2012-10-17",
+					    Statement: [
+					        {
+					            Effect: "Allow",
+					            Principal: {
+					                Federated: "arn:aws:iam::<account_id>:saml-provider/styx"
+					            },
+					            Action: "sts:AssumeRoleWithSAML",
+					            Condition: {
+					                StringEquals: {
+					                    'saml:aud': [
+					                        "https://${aws_cloudfront_distribution.styx_azuread.domain_name}/styx",
+					                        "https://signin.aws.amazon.com/saml"
+					                    ]
+					                }
+					            }
+					        }
+					    ]
+					}, "\t")
+				}
 			}
 		}
 	}

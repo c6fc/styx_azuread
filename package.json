@@ -5,7 +5,8 @@
   "main": "bin/index.js",
   "scripts": {
     "deploy": "sonnetry apply terraform.jsonnet",
-    "destroy": "cd render-c6fc_styx-azuread && terraform destroy"
+    "destroy": "cd render-c6fc_styx-azuread && terraform destroy",
+    "quickdeploy": "sonnetry apply terraform.jsonnet -ys"
   },
   "repository": {
     "type": "git",
