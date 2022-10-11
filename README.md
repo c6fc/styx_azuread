@@ -1,17 +1,20 @@
 # River Styx for Azure AD
 
-River Styx for Azure AD allows organizations to govern access to AWS IAM Roles through Azure AD Group memberships.
+River Styx for Azure AD allows organizations to govern access to AWS IAM Roles through Azure AD Group memberships, and provide users a friendly UI to access the console or retrieve STS tokens for each role.
+
+![styx_ui](https://user-images.githubusercontent.com/143415/195136625-eb2fa20b-28ea-437a-8764-f2ad516f4bce.png)
 
 ## Installation
 
 1. Clone the repo, install dependencies, configure 'az' with credentials.
-2. Copy `settings.jsonnet.example` to `settings.jsonnet`, and update your `tenant_id`
-3. Run `npx sonnetry apply terraform.jsonnet`
+2. Copy `settings.jsonnet.example` to `settings.jsonnet`
+3. Edit the file to supply your tenant id and select whether to use the Styx-provided UI.
+4. Run `npx sonnetry apply terraform.jsonnet`
 
 When the automatic provisioning is complete, it's necessary to manually generate a certificate for the Enterprise Application in Azure (Terraform can't do it automatically):
 
-1. Navigate to your tenancy in Azure AD
-2. Azure Active Directory -> Enterprise applications -> Styx -> Single sign-on
+1. Navigate to your tenancy in the Azure Portal
+2. Go to Azure Active Directory -> Enterprise applications -> River Styx -> Single sign-on
 3. Under card '3 - SAML Certficates', click 'Add a certificate'
 4. Accept the defaults ("Sign SAML assertion" and "SHA-256"), click 'New Certificate', and 'Save'.
 
@@ -30,14 +33,14 @@ Members of this group would be permitted to assume the role named 'Developers' i
 2. Azure Active Directory -> Groups
 3. Create a new group using the account id and role name it will govern access to
 4. Add users who should be permitted to access this role
-5. Navigate to Azure Active Directory -> Enterprise applications -> Styx -> Users and Groups
-6. Click 'Add user/group' and add the group you just created to the application (optional)
+5. Navigate to Azure Active Directory -> Enterprise applications -> River Styx -> Users and Groups
+6. Click 'Add user/group' and add the group you just created to the application
 
 ## Configure destination accounts
 
 ### Download the IdP metadata from the deployment account
 
-1. Navigate to the IAM console, and click 'Identity Providers' -> Styx
+1. Navigate to the IAM console, and click 'Identity Providers' -> 'River Styx'
 2. Click the 'Download metadata' button, and save the file for later.
 
 ### Create the IAM Identity Provider in destination accounts
@@ -75,5 +78,5 @@ This step assumes that you've already created the Azure AD Group associated with
 
 ## How users access River Styx
 
-1. Users visit 'https://myapps.microsoft.com/'
-2. Click the app shown as 'styx'
+1. Users visit https://myapps.microsoft.com/
+2. Click the app shown as 'River Styx'

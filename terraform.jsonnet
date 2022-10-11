@@ -268,7 +268,10 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 		output: {
 			azure_ad_acs_url: {
 				value: "https://${aws_cloudfront_distribution.styx_azuread.domain_name}/acs"
-			}
+			},
+			azure_ad_redirect_url: {
+				value: "https://${aws_cloudfront_distribution.styx_azuread.domain_name}/styx"
+			},
 		}
 	},
 	'cloudwatch-api-gateway-role.tf.json': {
