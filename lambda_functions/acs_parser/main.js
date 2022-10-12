@@ -7,7 +7,7 @@ const xml2js = require('xml2js');
 const ddb = new aws.DynamoDB.DocumentClient({ region: "us-west-2" });
 
 exports.main = async (event, context, callback) => {
-	console.log(JSON.stringify(event))
+	// console.log(JSON.stringify(event))
 
 	if (event.requestContext.httpMethod != "POST") {
 		return callback({
@@ -37,7 +37,7 @@ exports.main = async (event, context, callback) => {
 	const saml_response = Buffer.from(saml_token, 'base64');
 	const saml_object = await xml2js.parseStringPromise(saml_response.toString());
 
-	console.log(JSON.stringify(saml_object));
+	// console.log(JSON.stringify(saml_object));
 
 	const saml_acs_domain = saml_object["samlp:Response"]?.["$"]?.Destination?.split('/')?.[2];
 	const saml_attributes = saml_object["samlp:Response"]?.Assertion?.[0]?.AttributeStatement?.[0]?.Attribute;

@@ -14,9 +14,13 @@
               <div class="card mb-2 border border-white shadow-none" ng-hide="!roles[0]">
                 <div class="card-header text-dark">
                   AWS Roles for {{ email }}
+                  <div class="m-1 card-action">
+                    Token Expires
+                    <span class="btn btn-sm btn-primary">{{ timer }}</span>
+                  </div>
                 </div>
 
-                <div class="card-body bg-dark text-white">
+                <div class="card-body bg-dark text-white" ng-hide="timeout">
                   <div class="table-responsive">
                     <table class="table table-dark">
                       <thead>
@@ -42,6 +46,9 @@
                       </tbody>
                     </table>
                   </div>
+                </div>
+                <div class="card-body bg-dark text-white" ng-show="timeout">
+                  <h3>* Session expired.</h3>
                 </div>
               </div>
             </div>

@@ -6,10 +6,19 @@ River Styx for Azure AD allows organizations to govern access to AWS IAM Roles t
 
 ## Installation
 
-1. Clone the repo, install dependencies, configure 'az' with credentials.
-2. Copy `settings.jsonnet.example` to `settings.jsonnet`
-3. Edit the file to supply your tenant id and select whether to use the Styx-provided UI.
-4. Run `npx sonnetry apply terraform.jsonnet`
+To install Styx for Azure AD, you must first install and configure the Azure CLI ('az') with credentials for your target tenant. Once that is ready, use the following to install dependencies and initiate the deployment:
+```bash
+git clone https://github.com/c6fc/styx_azuread.git
+cd styx_azuread
+
+# Edit the settings file to set your tenant id
+cp settings.jsonnet.example settings.jsonnet
+vim settings.jsonnet
+
+# Install npm dependencies, and start the deployment
+npm install
+npm run deploy
+```
 
 When the automatic provisioning is complete, it's necessary to manually generate a certificate for the Enterprise Application in Azure (Terraform can't do it automatically):
 
@@ -27,7 +36,7 @@ AWS_123456789012_Developers
      ^ Account       ^ Role name
 ```
 
-Members of this group would be permitted to assume the role named 'Developers' in account '123456789012'
+Members of this group would be permitted to assume the role named 'Developers' in account '123456789012'.
 
 1. Navigate to your tenancy in Azure AD
 2. Azure Active Directory -> Groups
@@ -40,12 +49,12 @@ Members of this group would be permitted to assume the role named 'Developers' i
 
 ### Download the IdP metadata from the deployment account
 
-1. Navigate to the IAM console, and click 'Identity Providers' -> 'River Styx'
+1. In your deployment account, navigate to the IAM console, and click 'Identity Providers' -> 'styx'
 2. Click the 'Download metadata' button, and save the file for later.
 
 ### Create the IAM Identity Provider in destination accounts
 
-1. Navigate to the IAM console, and click 'Identity Providers'
+1. In each destination account, navigate to the IAM console, and click 'Identity Providers'
 2. Click 'Add Provider'
 3. Use the provider type of 'SAML', enter the provider name as 'styx' (case sensitive), and upload the metadata document downloaded earlier.
 4. Click 'Add provider'
@@ -80,3 +89,19 @@ This step assumes that you've already created the Azure AD Group associated with
 
 1. Users visit https://myapps.microsoft.com/
 2. Click the app shown as 'River Styx'
+
+## Uninstallation
+
+The process to remove Styx for Azure AD is similar to creating, you must first install and configure the Azure CLI ('az') with credentials for your target tenant. Once that is ready, use the following to install dependencies and run the destroy:
+```bash
+git clone https://github.com/c6fc/styx_azuread.git
+cd styx_azuread
+
+# Edit the settings file to set your tenant id
+cp settings.jsonnet.example settings.jsonnet
+vim settings.jsonnet
+
+# Install npm dependencies, and run the destroy
+npm install
+npm run destroy
+```

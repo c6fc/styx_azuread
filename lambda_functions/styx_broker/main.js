@@ -81,8 +81,13 @@ exports.main = async function (event, context, callback) {
 	// Verify the assertion against the published metadata
 	const expectedIssuer = metadataXml.documentElement.getAttribute('entityID');
 
-	validateSignedXml(metadataXml);
-
+	if (expectedIssuer != `https://sts.windows.net/${process.env.TENANT_ID}/` || !validateSignedXml(metadataXml)) {
+		return callback(null, {
+			statusCode: 400,
+			headers: {},
+			body: "Invalid metadata"
+		});
+	}
 
 	const saml_acs_domain = saml_object["samlp:Response"]?.["$"]?.Destination?.split('/')?.[2];
 	const saml_attributes = saml_object["samlp:Response"]?.Assertion?.[0]?.AttributeStatement?.[0]?.Attribute;
@@ -193,7 +198,7 @@ function kmsKeyInfo() {
 	};
 
 	this.getKey = function(keyInfo) {
-		console.log(keyInfo);
+		// console.log(keyInfo);
 
 		return process.env.KMS_KEY_ID;
 	};
@@ -255,9 +260,9 @@ function getAssertion(doc, options) {
 	awsRoleElement.setAttribute('Name', 'https://aws.amazon.com/SAML/Attributes/Role');
 
 	options.group_names
-		.filter(e => /AWS_(\d+)_([a-zA-Z]+)/.test(e))
+		.filter(e => /AWS_(\d+)_([\w+=,.@-]+)/.test(e))
 		.map(e => {
-			const [, account_id, role_name] = /AWS_(\d+)_([a-zA-Z]+)/g.exec(e);
+			const [, account_id, role_name] = /AWS_(\d+)_([\w+=,.@-]+)/g.exec(e);
 
 			// console.log(/AWS_(\d+)_([a-zA-Z]+)/g.exec(e));
 

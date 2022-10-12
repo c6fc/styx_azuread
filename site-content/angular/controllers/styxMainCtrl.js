@@ -30,9 +30,19 @@ angular
       }
 
       $scope.roles = [];
+      $scope.timeout = false;
+      $scope.timer = 300;
       $scope.getRoles = () => {
         $.get('/roles', (data) => {
           console.log(data);
+
+          const ends = (data.issued + 300000) - Date.now();
+
+          $timeout(() => {
+            $scope.timeout = true;
+          }, ends);
+
+          $scope.startTimer(Math.floor(ends / 1000));
 
           $scope.email = data.email;
           $scope.$parent.gravatar = md5(data.email);
@@ -53,6 +63,19 @@ angular
       };
 
       $scope.getRoles();
+
+      $scope.startTimer = (time) => {
+        $scope.timer = time;
+        $scope.tick();
+      };
+
+      $scope.tick = () => {
+        $scope.timer -= 1;
+
+        if ($scope.timer > 0) {
+          $timeout($scope.tick, 1000);
+        }
+      };
 
       $scope.getCreds = (index, entitlement) => {
         $scope.credentials = false;

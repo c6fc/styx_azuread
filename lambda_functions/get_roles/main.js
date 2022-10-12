@@ -81,7 +81,7 @@ exports.main = async (event, context, callback) => {
 		headers: {
 			'Content-Type': "application/json"
 		},
-		body: JSON.stringify({ role_entitlements, email, expires })
+		body: JSON.stringify({ role_entitlements, email, issued })
 	});
 
 	/*const saml_response = Buffer.from(saml_token, 'base64');
