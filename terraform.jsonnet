@@ -533,8 +533,8 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 					}],
 
 					triggers: {
-						pubkey: "${data.aws_kms_public_key.saml.public_key}",
-						always:: "${timestamp()}"
+						pubkey:: "${data.aws_kms_public_key.saml.public_key}",
+						always: "${timestamp()}"
 					}
 				},
 			}
