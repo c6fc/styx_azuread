@@ -25,6 +25,8 @@
   "homepage": "https://github.com/c6fc/npk#readme",
   "dependencies": {
     "@c6fc/sonnetry": "^2.2.0",
-    "@jahed/terraform": "^0.15.5"
+    "@jahed/terraform": "^0.15.5",
+    "@peculiar/webcrypto": "^1.4.0",
+    "@peculiar/x509": "^1.8.3"
   }
 }

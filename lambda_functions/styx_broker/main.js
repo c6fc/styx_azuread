@@ -8,6 +8,7 @@ const msal = require('@azure/msal-node');
 const xmlc = require('xml-crypto');
 const xml2js = require('xml2js');
 const Parser = require('@xmldom/xmldom').DOMParser;
+const XMLSerializer = require('@xmldom/xmldom').XMLSerializer;
 
 const sm = new aws.SecretsManager({ region: "us-west-2" });
 const ddb = new aws.DynamoDB.DocumentClient({ region: "us-west-2" });
@@ -28,7 +29,7 @@ async function getToken(id, tenant, secret) {
 }
 
 exports.main = async function (event, context, callback) {
-	// console.log(JSON.stringify(event))
+	// console.log(JSON.stringify(event));
 
 	if (event.requestContext.httpMethod != "POST") {
 		return callback({
@@ -52,53 +53,56 @@ exports.main = async function (event, context, callback) {
 
 	const ip = event.headers['X-Forwarded-For'].split(', ')[0];
 
-	const saml_token = decodeURIComponent(body.split('SAMLResponse=')[1]);
-	const key = sha256(saml_token);
+    const saml_token = decodeURIComponent(body.split('SAMLResponse=')[1]);
+    const key = sha256(saml_token);
 
-	const saml_response = Buffer.from(saml_token, 'base64').toString('ascii');
+    const saml_response = Buffer.from(saml_token, 'base64').toString('ascii');
+    const saml_response_doc = new Parser().parseFromString(saml_response); // Parse the SAML Response
 
-	// console.log(saml_response);
+    // console.log(saml_response);
 
-	const saml_object = await xml2js.parseStringPromise(saml_response);
+    const saml_object = await xml2js.parseStringPromise(saml_response);
 
-	// console.log(JSON.stringify(saml_object));
+    // console.log(JSON.stringify(saml_object));
 
-	const tenant = saml_object["samlp:Response"]?.["Issuer"]?.[0]?.["_"].split('/')[3];
+    const tenant = saml_object["samlp:Response"]?.["Issuer"]?.[0]?.["_"].split('/')[3];
 
-	// console.log(tenant);
+    // console.log(tenant);
 
-	if (tenant != process.env.TENANT_ID) {
-		return callback(null, {
-			statusCode: 400,
-			headers: {},
-			body: "Invalid issuer"
-		});
-	}
+    if (tenant != process.env.TENANT_ID) {
+        return callback(null, {
+            statusCode: 400,
+            headers: {},
+            body: "Invalid issuer"
+        });
+    }
 
-	const metadata = await axios.get(`https://login.microsoftonline.com/${process.env.TENANT_ID}/federationmetadata/2007-06/federationmetadata.xml?appid=${process.env.APPLICATION_ID}`);
-	const metadataXml = new Parser().parseFromString(metadata.data);
+    const metadata = await axios.get(`https://login.microsoftonline.com/${process.env.TENANT_ID}/federationmetadata/2007-06/federationmetadata.xml?appid=${process.env.APPLICATION_ID}`);
+    const metadataXml = new Parser().parseFromString(metadata.data);
 
-	// Verify the assertion against the published metadata
-	const expectedIssuer = metadataXml.documentElement.getAttribute('entityID');
+    // Verify the assertion against the published metadata
+    const expectedIssuer = metadataXml.documentElement.getAttribute('entityID');
 
-	if (expectedIssuer != `https://sts.windows.net/${process.env.TENANT_ID}/` || !validateSignedXml(metadataXml)) {
-		return callback(null, {
-			statusCode: 400,
-			headers: {},
-			body: "Invalid metadata"
-		});
-	}
+    // Verify the issuer and validate the signature
+    if (expectedIssuer != `https://sts.windows.net/${process.env.TENANT_ID}/` || !validateSignedXml(metadataXml, saml_response_doc)) {
+        return callback(null, {
+            statusCode: 400,
+            headers: {},
+            body: "Invalid metadata or signature"
+        });
+    }
 
 	const saml_acs_domain = saml_object["samlp:Response"]?.["$"]?.Destination?.split('/')?.[2];
 	const saml_attributes = saml_object["samlp:Response"]?.Assertion?.[0]?.AttributeStatement?.[0]?.Attribute;
 	const issued = new Date(saml_object["samlp:Response"]?.Assertion?.[0]?.["$"]?.IssueInstant).getTime();
-	// console.log(`Issued delta: ${new Date() - issued}`);
+	const conditions = saml_object["samlp:Response"]?.Assertion?.[0]?.Conditions[0];
 
-	if (isNaN(issued) || new Date() - issued > 300000) {
+	const now = new Date();
+	if (now < new Date(conditions["$"].NotBefore) || new Date(conditions["$"].NotAfter) < now) {
 		return callback(null, {
 			statusCode: 400,
 			headers: {},
-			body: "Invalid assertion issuance instant"
+			body: "Issuance conditions failed"
 		});
 	}
 
@@ -327,23 +331,173 @@ function getSignedXml(xml, key) {
 	});
 }
 
-function validateSignedXml(xml) {
-	const signature = xmlc.xpath(xml, "//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']")[0];
-	const certificate = xmlc.xpath(xml, "//*[local-name(.)='X509Certificate']/text()")[0].toString();
+function getSignatureAlgorithm(saml_response_doc) {
+    const signatureAlgorithmNode = xmlc.xpath(saml_response_doc, "//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']/*[local-name(.)='SignedInfo']/*[local-name(.)='SignatureMethod']")[0];
+    return signatureAlgorithmNode ? signatureAlgorithmNode.getAttribute('Algorithm') : null;
+}
 
-	const sig = new xmlc.SignedXml();
-	sig.keyInfoProvider = new rawKeyInfo(certificate);
-	//sig.signingKey = certificate.toString();
-	sig.loadSignature(signature);
-	const result = sig.checkSignature(xml.toString());
+function validateSignedXml(metadataXml, saml_response_doc) {
+	// Perform inline unit tests if DEBUG_STYX is set
+	if (!!process.env.DEBUG_STYX) {
+		const testResults = performInlineValidationTests(metadataXml, saml_response_doc);
 
-	if (result) {
-		return true;
-	} else {
-		console.log(sig.validationErrors);
-		return false;
+		if (!testResults.allTestsPassed) {
+		    console.error("Inline validation tests failed:", testResults.failedTests);
+		    return false;
+		}
+
+		console.log("All inline validation tests passed");
 	}
 
+	// Original validation logic (if tests pass)
+	return validateAssertion(metadataXml, saml_response_doc);
+}
+
+function performInlineValidationTests(metadataXml, saml_response_doc) {
+	const originalAssertion = xmlc.xpath(saml_response_doc, "//*[local-name(.)='Assertion']")[0].toString();
+    const tests = [
+        {
+            name: "Original Assertion",
+            manipulation: () => originalAssertion, // No change
+            expected: true, // Should pass
+        },
+        {
+            name: "Tampered Issuer",
+            manipulation: () => {
+                const doc = new Parser().parseFromString(originalAssertion);
+                const node = xmlc.xpath(doc, "//*[local-name(.)='Issuer']/text()")[0];
+                return new XMLSerializer().serializeToString(doc).replace(node.nodeValue, node.nodeValue.replace(/-/g, "_"));
+            },
+            expected: false, // Should fail
+        },
+        {
+            name: "Tampered AttributeStatement",
+            manipulation: () => originalAssertion.replace(/AttributeStatement/g, 'AttributeStatementX'),
+            expected: false, // Should fail
+        },
+        {
+            name: "Tampered X509Certificate",
+            manipulation: () => {
+                const doc = new Parser().parseFromString(originalAssertion);
+                const node = xmlc.xpath(doc, "//*[local-name(.)='X509Certificate']/text()")[0];
+                return new XMLSerializer().serializeToString(doc).replace(node.nodeValue, `x${node.nodeValue}`);
+            },
+            expected: false
+        },
+        {
+            name: "Tampered NameID",
+            manipulation: () => {
+                const doc = new Parser().parseFromString(originalAssertion);
+                const node = xmlc.xpath(doc, "//*[local-name(.)='NameID']/text()")[0];
+                return new XMLSerializer().serializeToString(doc).replace(node.nodeValue, `${node.nodeValue}x`);
+            },
+            expected: false
+        },
+        {
+            name: "Tampered tenantid Attribute",
+            manipulation: () => {
+                const doc = new Parser().parseFromString(originalAssertion);
+                const node = xmlc.xpath(doc, "//*[local-name()='Attribute' and @Name='http://schemas.microsoft.com/identity/claims/tenantid']/*[local-name()='AttributeValue']/text()")[0];
+                return new XMLSerializer().serializeToString(doc).replace(node.nodeValue, node.nodeValue.replace(/-/g, "_"));
+            },
+            expected: false
+        },
+        {
+            name: "Tampered Signature",
+            manipulation: () => {
+                const doc = new Parser().parseFromString(originalAssertion);
+                const node = xmlc.xpath(doc, "//*[local-name(.)='SignatureValue']/text()")[0];
+                return new XMLSerializer().serializeToString(doc).replace(node.nodeValue, node.nodeValue.replace(/e/g, "X"));
+            },
+            expected: false
+        },
+        // Add more test cases as needed...
+    ];
+
+    const results = {
+        allTestsPassed: true,
+        failedTests: [],
+    };
+
+    for (const test of tests) {
+
+    	console.log(`Starting test ${test.name}`);
+        const manipulatedAssertion = test.manipulation();
+
+        if (manipulatedAssertion === originalAssertion) {
+        	console.log(`---> Test does not modify originalAssertion`);
+        }
+
+        const parsedManipulatedAssertion = new Parser().parseFromString(manipulatedAssertion);
+        const signatureInManipulatedAssertion = xmlc.xpath(parsedManipulatedAssertion, "//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']")[0];
+        const assertionNodeInManipulatedAssertion = xmlc.xpath(parsedManipulatedAssertion, "//*[local-name(.)='Assertion']")[0];
+
+        if (!signatureInManipulatedAssertion) {
+            console.error(`No Signature found in the manipulated assertion for test: ${test.name}`);
+            results.allTestsPassed = false;
+            results.failedTests.push(test.name);
+            continue;
+        }
+
+        let testPassed;
+
+        try {
+        	const manipulated_doc = new Parser().parseFromString(saml_response_doc.toString().replace(/<Assertion.*?<\/Assertion>/, manipulatedAssertion));
+            testPassed = validateAssertion(metadataXml, manipulated_doc) === test.expected;
+            console.log(`---> Result matches expected?: [${testPassed}]`);
+        } catch (error) {
+            console.error(`---> Error during test '${test.name}':`, error);
+            testPassed = false === test.expected; // Consider test as matching expectation if an error occurs
+        }
+
+        if (!testPassed) {
+            results.allTestsPassed = false;
+            results.failedTests.push(`${test.name} should be ${test.expected}`);
+        }
+    }
+
+    return results;
+}
+
+function validateAssertion(metadataXml, saml_response_doc) {
+	const assertionNode = xmlc.xpath(saml_response_doc, "//*[local-name(.)='Assertion']")[0];
+
+    if (!assertionNode) {
+        console.error("No Assertion found in the SAML response.");
+        return false;
+    }
+    const signatureAlgorithm = getSignatureAlgorithm(saml_response_doc);
+    const signature = xmlc.xpath(saml_response_doc, "//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']")[0];
+    const certificateNode = xmlc.xpath(saml_response_doc, "//*[local-name(.)='Signature' and namespace-uri(.)='http://www.w3.org/2000/09/xmldsig#']//*[local-name(.)='X509Certificate']/text()")[0];
+
+    if (!signature || !certificateNode) {
+        console.error("No Signature or X509Certificate found in the SAML response.");
+        return false;
+    }
+
+    const certificate = certificateNode.toString();
+
+    // Find the public key in the metadata that matches the certificate
+    const keyDescriptors = xmlc.xpath(metadataXml, "//*[local-name(.)='KeyDescriptor' and @use='signing']");
+
+    for (let i = 0; i < keyDescriptors.length; i++) {
+        const keyDescriptor = keyDescriptors[i];
+        const metadataCertificateNode = xmlc.xpath(keyDescriptor, ".//*[local-name(.)='X509Certificate']/text()")[0];
+
+        if (metadataCertificateNode && metadataCertificateNode.toString().replace(/\s+/g, '') === certificate.replace(/\s+/g, '')) {
+            const sig = new xmlc.SignedXml();
+            sig.signatureAlgorithm = signatureAlgorithm;
+            sig.keyInfoProvider = new rawKeyInfo(certificate);
+            sig.loadSignature(signature);
+
+            if (sig.checkSignature(assertionNode.toString())) {
+                return true; // Valid signature found
+            } else {
+                console.log("Signature validation failed with this key:", sig.validationErrors);
+            }
+        }
+    }
+    return false; // No valid signature found
 }
 
 xmlc.SignedXml.SignatureAlgorithms["http://kmsSigAlgorithm"] = kmsSigAlgorithm;

@@ -26,6 +26,19 @@ local rest_api_map(api, pathParts) = {
 			} + object.methods[method].parameters
 			for method in std.objectFields(object.methods)
 		},
+		aws_api_gateway_method_settings: {
+			[std.asciiLower("%s_%s" % [thispath, method])]: {
+				rest_api_id: "${aws_api_gateway_rest_api.%s.id}" % [api],
+				stage_name: pathParts.deployment.stage_name,
+				method_path: "${aws_api_gateway_resource.%s.id}/%s" % [thispath, method],
+				settings: {
+					caching_enabled: false,
+					logging_level: "INFO",
+					metrics_enabled: true
+				}
+			}
+			for method in std.objectFields(object.methods)
+		},
 		aws_api_gateway_integration: {
 			[std.asciiLower("%s_%s" % [thispath, method])]: {
 				rest_api_id: "${aws_api_gateway_rest_api.%s.id}" % [api],
@@ -104,9 +117,21 @@ local rest_api(name, map) =
 				} + map.parameters
 			},
 			aws_api_gateway_deployment: {
-				[name]: map.deployment + {
+				[name]: {
 					rest_api_id: "${aws_api_gateway_rest_api.%s.id}" % [name],
-					depends_on: ["aws_api_gateway_integration.%s" % [integration] for integration in std.objectFields(api_map.resource.aws_api_gateway_integration)]
+					depends_on: ["aws_api_gateway_integration.%s" % [integration] for integration in std.objectFields(api_map.resource.aws_api_gateway_integration)],
+					lifecycle: {
+						create_before_destroy: true
+					},
+					triggers: {
+						always: "${timestamp()}"
+					}
+				}
+			},
+			aws_api_gateway_stage: {
+			 	[name]: map.deployment + {
+					rest_api_id: "${aws_api_gateway_rest_api.%s.id}" % [name],
+					deployment_id: "${aws_api_gateway_deployment.%s.id}" % [name],
 				}
 			}
 		}

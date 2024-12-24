@@ -20,8 +20,8 @@ local lambda_function(name, config, role_policy) = {
 				}],
 
 				triggers: {
-			        always: "${timestamp()}"
-			    }
+					always: "${timestamp()}"
+				}
 			}
 		},
 		aws_iam_role: {

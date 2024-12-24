@@ -6,10 +6,9 @@ River Styx for Azure AD allows organizations to govern access to AWS IAM Roles t
 
 ## Requirements
 
-**Node >= 17.0.1**
-**NPM >= 8.0.1**
-**OpenSSL 3.0 or higher**
-**Azure CLI**
+* **Node >= 17.0.1**
+* **NPM >= 8.0.1**
+* **Azure CLI (authenticted with `az login`)**
 
 ## Installation
 

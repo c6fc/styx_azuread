@@ -1,4 +1,7 @@
 {
+	cert_subject: "C=US,ST=Colorado,L=Longmont,CN=styx",
+	cert_validity_years: 10,
 	tenant_id: "12345678-71fd-431c-a9dc-abcdef12345678",
-	use_styx_view: true
+	use_styx_view: true,
+	use_waf: true
 }

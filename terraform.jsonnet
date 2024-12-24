@@ -115,7 +115,7 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 		},
 		output: {
 			api_gateway_acs_url: {
-				value: "${aws_api_gateway_deployment.styx_azuread.invoke_url}/acs"
+				value: "${aws_api_gateway_deployment.styx_azuread.invoke_url}acs"
 			}
 		}
 	},
@@ -257,6 +257,7 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 					viewer_certificate: {
 						cloudfront_default_certificate: true,
 					},
+					[if settings.use_waf == true then 'web_acl_id' else null]: "${aws_wafv2_web_acl.backend.arn}",
 					restrictions: {
 						geo_restriction: {
 							restriction_type: "none",
@@ -528,7 +529,7 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 
 					provisioner: [{
 						"local-exec": {
-							command: "openssl req -x509 -sha256 -nodes -days 3652 -newkey rsa:2048 -keyout - -out /dev/null -subj /C=US/ST=Colorado/L=Longmont/CN=styx | openssl x509 -new -key /dev/stdin -subj /C=US/ST=Colorado/L=Longmont/CN=styx -force_pubkey %s/styx.der -days 365 -outform der | base64 -w0 > %s/saml_certificate.der.asc" % [sonnetry.path(), sonnetry.path()]
+							command: "node %s/bin/createCertificate.js generate \"%s\" %s ${local_file.styx_der.filename} %s/saml_certificate.der.asc" % [sonnetry.path(), settings.cert_subject, settings.cert_validity_years, sonnetry.path()]
 						}
 					}],
 
@@ -785,6 +786,50 @@ local lambda = import 'jsonnet/lambda.libsonnet';
 					        }
 					    ]
 					}, "\t")
+				}
+			}
+		}
+	},
+	[if settings.use_waf == true then 'waf.tf.json' else null]: {
+		resource: {
+			aws_wafv2_web_acl: {
+				backend: {
+					provider: "aws.us-east-1",
+					name: "styx_azuread_waf",
+					description: "WAF for Styx AzureAD",
+					scope: "CLOUDFRONT",
+
+					default_action: {
+						allow: {}
+					},
+
+					rule: [{
+						name: "aws_core_ruleset",
+						priority: 1,
+
+						override_action: {
+							count: {}
+						},
+
+						statement: [{
+							managed_rule_group_statement: {
+								name: "AWSManagedRulesCommonRuleSet",
+								vendor_name: "AWS"
+							}
+						}],
+
+						visibility_config: [{
+							cloudwatch_metrics_enabled: false,
+							metric_name: "cloudhsm_backed_waf-core_ruleset",
+							sampled_requests_enabled: false
+						}]
+					}],
+
+					visibility_config: [{
+						cloudwatch_metrics_enabled: false,
+						metric_name: "cloudhsm_backed_waf",
+						sampled_requests_enabled: false
+					}]
 				}
 			}
 		}
